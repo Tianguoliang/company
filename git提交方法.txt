@@ -1,0 +1,6 @@
+1.clone网址到存储目录，git clone http。。。
+2.文件放到目录下如d:\text
+3.增加文件git add campany.py
+4.进入缓存git commit -m '第一次尝试上传'
+5.增加到网址git remote add origin https://github.com/findingsea/myRepoForBlog.git
+6.push进去git push origin master
