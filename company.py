@@ -1,17 +1,23 @@
 #coding:utf-8
 #Actor:Tyson
 import time
+from urllib.parse import urlencode
+
 import requests
 from bs4 import BeautifulSoup
 import pymongo
 import re
 import json
 from urllib import parse
+
+from pip._vendor.requests import RequestException
+
 from config import *
 from multiprocessing import Pool
 import random
 client = pymongo.MongoClient(MONGO_URL, connect=False)
 db = client[MONGO_DB]
+
 def search_company_information(keyword,p):
     session = requests.session()
     a={'http':'111.20.214.25:9999'},{'http':'200.29.191.151:3128'}
@@ -49,7 +55,6 @@ def search_company_information(keyword,p):
     js_url=re.findall(s,str(a))[0]
     # print('js_url')
     # print (js_url)
-
     js_page = session.request("GET", js_url, headers = public_headers)
 
     try:
@@ -77,21 +82,55 @@ def search_company_information(keyword,p):
             # print(data)
             return data
     except RequestException:
-
         print('请求公司信息失败,等待。。。。')
         time.sleep(30)
         return None
 
-def save_to_mongo(company_information):
+#给到id之后，从网页返回url_datas（包含假的id和year）
+def get_url_datas(id):
+    url='http://www.tianyancha.com/expanse/annu.json?id='+str(id)+'&ps=5&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200:
+            rs=response.json().get('data')
+            url_datas=[]
+            for r in rs:
+                url_data={'id':id,'year':r.get('reportYear')}
+                url_datas.append(url_data)
+            return url_datas
+        return None
+    except RequestException:
+        print('请求详情页（get_detail_html)失败')
+        return None
+
+def get_nianbao(url_datas):
+    nianbaos={}
+    try:
+        for url_data in url_datas:
+            url='http://www.tianyancha.com/annualreport/newReport.json?'+urlencode(url_data)
+            response=requests.get(url)
+            if response.status_code==200:
+                a=response.json()
+                nianbaos=dict(a.items()+nianbaos.items())
+
+        return nianbaos
+    except RequestException:
+        print('请求详情页（get_detail_html)失败')
+        return None
+
+def save_to_mongo(company_information,nianbaos):
     if db[MONGO_TABLE].insert(company_information):
         print('Waiting save data.............')
         time.sleep(0.1)
-        print('保存数据中。。。。。。')
+        print('保存公司基本信息数据中。。。。。。')
+        print('Successfully Saved to Mongo')
+    if db[MONGO_TABLE].insert(nianbaos):
+        print('Waiting save data.............')
+        time.sleep(0.1)
+        print('保存年报数据中。。。。。。')
         print('Successfully Saved to Mongo')
         return True
     return False
-
-
 
 def main(p):
     # p_end=50
@@ -100,16 +139,21 @@ def main(p):
     for keyword in keywordlist:
         print(keyword)
         print(p)
-        company_information=search_company_information(keyword,p)
+        company_informations=search_company_information(keyword,p)
+        for company_information in company_informations:
+            id=(company_information).get('id')
+            url_datas=get_url_datas(id)
+            nianbaos=get_nianbao(url_datas)
         # detail_result=get_detail_result(company_information)
-        if company_information is not None: save_to_mongo(company_information)
+            if company_information is not None: save_to_mongo(company_information,nianbaos)
 
 if __name__ == "__main__":
-    p = ([x for x in range(GROUP_START, GROUP_END + 1)])
-    pool = Pool(8)
-    pool.map(main, p)
-    pool.close()
-    pool.join()
+    main(10)
+    # p = ([x for x in range(GROUP_START, GROUP_END + 1)])
+    # pool = Pool(8)
+    # pool.map(main, p)
+    # pool.close()
+    # pool.join()
 
 
 
