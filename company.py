@@ -9,7 +9,6 @@ import re
 import json
 from urllib import parse
 from pip._vendor.requests import RequestException
-
 from config import *
 from multiprocessing import Pool
 import random
@@ -102,25 +101,167 @@ def get_annureport_count(id):
                 return url_datas
         return None
     except RequestException:
-        print('请求详情页（get_detail_html)失败')
+        print('请求公司多少次年报失败')
         return None
 
 #根据url_data获取每一年的年报信息，并保存到nianbaos。涉及知识点：字典的叠加！
 def get_nianbao(annureport_count):
-    nianbaos={}.copy()
-    a=''
-    i=0
+    if annureport_count is not None:
+        nianbaos={}.copy()
+        a=''
+        i=0
+        try:
+            for annureport_data in annureport_count:
+                i=i+1
+                url='http://www.tianyancha.com/annualreport/newReport.json?'+urlencode(annureport_data)
+                try:
+                    response=requests.get(url,timeout=1)
+                    if response.status_code==200:
+                        a={str(i):response.json()}
+                        nianbaos.update(a)
+                    return nianbaos
+                except:
+                    print('异常')
+        except RequestException:
+            print('请求公司年报失败')
+            return None
+
+#获取公司人员信息
+def get_staff_informaton(id):
+    url='http://www.tianyancha.com/expanse/staff.json?id='+str(id)+'&ps=20&pn=1'
+    response=requests.get(url)
     try:
-        for annureport_data in annureport_count:
-            i=i+1
-            url='http://www.tianyancha.com/annualreport/newReport.json?'+urlencode(annureport_data)
-            response=requests.get(url)
-            if response.status_code==200:
-                a={str(i):response.json()}
-                nianbaos.update(a)
-        return nianbaos
+        if response.status_code==200 and  'data' in response.json():
+            staff_information=response.json().get('data')
+            if staff_information is not None and '无数据':
+                return staff_information
+        return None
     except RequestException:
-        print('请求详情页（get_detail_html)失败')
+        print('请求公司人员信息失败')
+        return None
+
+#获取公司股东信息
+def get_holder_informaton(id):
+    url='http://www.tianyancha.com/expanse/holder.json?id='+str(id)+'&ps=20&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            holder_information=response.json().get('data')
+            if holder_information is not None and '无数据':
+                return holder_information
+        return None
+    except RequestException:
+        print('请求公司对外投资信息失败')
+        return None
+
+#获取公司对外投资信息
+def get_inverst_informaton(id):
+    url='http://www.tianyancha.com/expanse/inverst.json?id='+str(id)+'&ps=20&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            inverst_information=response.json().get('data')
+            if inverst_information is not None and '无数据':
+                return inverst_information
+        return None
+    except RequestException:
+        print('请求公司股东信息失败')
+        return None
+
+#获取公司变更信息
+def get_changeinfo_informaton(id):
+    url='http://www.tianyancha.com/expanse/changeinfo.json?id='+str(id)+'&ps=5&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            changeinfo_informaton=response.json().get('data')
+            if changeinfo_informaton is not None and '无数据':
+                return changeinfo_informaton
+        return None
+    except RequestException:
+        print('请求公司股东信息失败')
+        return None
+
+#获取公司核心团队
+def get_findTeamMember(company_name):
+    url='http://www.tianyancha.com/expanse/findTeamMember.json?name='+company_name+'&ps=5&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            findTeamMember=response.json().get('data')
+            if findTeamMember is not None and '无数据':
+                return findTeamMember
+        return None
+    except RequestException:
+        print('获取公司核心团队失败')
+        return None
+#获取公司企业业务
+def get_findProduct(company_name):
+    url='http://www.tianyancha.com/expanse/findProduct.json?name='+company_name+'&ps=15&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            findProduct=response.json().get('data')
+            if findProduct is not None and '无数据':
+                return findProduct
+        return None
+    except RequestException:
+        print('获取公司企业业务失败')
+        return None
+
+#获取公司投资事件
+def get_findTzanli(company_name):
+    url='http://www.tianyancha.com/expanse/findTzanli.json?name='+company_name+'&ps=10&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            findTzanli=response.json().get('data')
+            if findTzanli is not None and '无数据':
+                return findTzanli
+        return None
+    except RequestException:
+        print('获取公司投资事件失败')
+        return None
+
+#获取竞品信息
+def get_findJingpin(company_name):
+    url='http://www.tianyancha.com/expanse/findJingpin.json?name='+company_name+'&ps=10&pn=1'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            findJingpin=response.json().get('data')
+            if findJingpin is not None and '无数据':
+                return findJingpin
+        return None
+    except RequestException:
+        print('获取竞品信息')
+        return None
+
+#获取法律诉讼信息
+def get_getlawsuit(company_name):
+    url='http://www.tianyancha.com/v2/getlawsuit/'+company_name+'.json?page=1&ps=10'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            getlawsuit=response.json().get('data')
+            if getlawsuit is not None and '无数据':
+                return getlawsuit
+        return None
+    except RequestException:
+        print('获取法律诉讼信息失败')
+        return None
+#获取法院公告
+def get_court(company_name):
+    url='http://www.tianyancha.com/v2/getlawsuit/'+company_name+'.json?'
+    response=requests.get(url)
+    try:
+        if response.status_code==200 and  'data' in response.json():
+            court=response.json().get('data')
+            if court is not None and '无数据':
+                return court
+        return None
+    except RequestException:
+        print('获取法院公告失败')
         return None
 
 def save_to_mongo(all_information):
@@ -141,22 +282,49 @@ def main(p):
         print(p)
         company_informations=search_company_information(keyword,p)
         for company_information in company_informations:
+            #获取重要的公司名称和id
             id=(company_information).get('id')
+            company_name=company_information.get('name').replace('<em>','   ').replace('</em>','')
+
+
+            #由id获取公司信息
             annureport_count=get_annureport_count(id)
-            if annureport_count is not None:
-                nianbaos=get_nianbao(annureport_count)
-                if company_information or nianbaos is not None:
-                    all_information={'公司基本信息':company_information,
-                                     '公司年报':nianbaos}
-                    save_to_mongo(all_information)
+            staff_informaton=get_staff_informaton(id)
+            holder_informaton=get_holder_informaton(id)
+            inverst_information=get_inverst_informaton(id)
+            changeinfo_informaton=get_changeinfo_informaton(id)
+            nianbaos=get_nianbao(annureport_count)
+
+            #由name获取公司发展信息
+            findTeamMember=get_findTeamMember(company_name)
+            findProduct=get_findProduct(company_name)
+            findTzanli=get_findTzanli(company_name)
+            findJingpin=get_findJingpin(company_name)
+
+            #由name获取公司司法风险信息
+            getlawsuit=get_getlawsuit(company_name)
+            court=get_court(company_name)
+
+            if company_information is not None:
+                all_information={'公司基本信息':company_information,
+                                 '公司年报':nianbaos,
+                                 '公司主要人员':staff_informaton,
+                                 '公司股东信息':holder_informaton,
+                                 '公司对外投资信息':inverst_information,
+                                 '公司变更记录':changeinfo_informaton,
+                                 '公司核心团队':findTeamMember,
+                                 '公司企业业务':findProduct,
+                                 '公司投资事件':findTzanli,
+                                 '竞品信息':findJingpin,
+                                 '法律诉讼信息':getlawsuit,
+                                 '法院公告':court}
+                save_to_mongo(all_information)
 
 if __name__ == "__main__":
-    main(10)
-    # p = ([x for x in range(GROUP_START, GROUP_END + 1)])
-    # pool = Pool(8)
-    # pool.map(main, p)
-    # pool.close()
-    # pool.join()
-
+    p = ([x for x in range(GROUP_START, GROUP_END + 1)])
+    pool = Pool(8)
+    pool.map(main, p)
+    pool.close()
+    pool.join()
 
 
