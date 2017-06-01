@@ -2,14 +2,12 @@
 #Actor:Tyson
 import time
 from urllib.parse import urlencode
-
 import requests
 from bs4 import BeautifulSoup
 import pymongo
 import re
 import json
 from urllib import parse
-
 from pip._vendor.requests import RequestException
 
 from config import *
@@ -63,13 +61,16 @@ def search_company_information(keyword,p):
         print('求sgattrs出错')
         return None
     tongji_page = session.request("GET", tongji_url, headers = api_headers)
+    try:
+        js_code = "".join([ chr(int(code)) for code in tongji_page.json()["data"]["v"].split(",") ])
+        token = re.findall(r"token=(\w+);", js_code)[0]
 
-    js_code = "".join([ chr(int(code)) for code in tongji_page.json()["data"]["v"].split(",") ])
-    token = re.findall(r"token=(\w+);", js_code)[0]
-
-    fxck_chars = re.findall(r"\'([\d\,]+)\'", js_code)[0].split(",")
-    sogou = sgattrs[9]
-    utm = "".join([sogou[int(fxck)] for fxck in fxck_chars])
+        fxck_chars = re.findall(r"\'([\d\,]+)\'", js_code)[0].split(",")
+        sogou = sgattrs[9]
+        utm = "".join([sogou[int(fxck)] for fxck in fxck_chars])
+    except:
+        print('请求utm和token失败')
+        return None
 
     session.cookies.set("token", token)
     session.cookies.set("_utm", utm)
@@ -87,47 +88,46 @@ def search_company_information(keyword,p):
         return None
 
 #给到id之后，从网页返回url_datas（包含假的id和year）
-def get_url_datas(id):
+def get_annureport_count(id):
     url='http://www.tianyancha.com/expanse/annu.json?id='+str(id)+'&ps=5&pn=1'
     response=requests.get(url)
     try:
-        if response.status_code==200:
+        if response.status_code==200 and  'data' in response.json():
             rs=response.json().get('data')
-            url_datas=[]
-            for r in rs:
-                url_data={'id':id,'year':r.get('reportYear')}
-                url_datas.append(url_data)
-            return url_datas
+            if rs is not None and '无数据':
+                url_datas=[]
+                for r in rs:
+                    url_data={'id':id,'year':r.get('reportYear')}
+                    url_datas.append(url_data)
+                return url_datas
         return None
     except RequestException:
         print('请求详情页（get_detail_html)失败')
         return None
 
-def get_nianbao(url_datas):
-    nianbaos={}
+#根据url_data获取每一年的年报信息，并保存到nianbaos。涉及知识点：字典的叠加！
+def get_nianbao(annureport_count):
+    nianbaos={}.copy()
+    a=''
+    i=0
     try:
-        for url_data in url_datas:
-            url='http://www.tianyancha.com/annualreport/newReport.json?'+urlencode(url_data)
+        for annureport_data in annureport_count:
+            i=i+1
+            url='http://www.tianyancha.com/annualreport/newReport.json?'+urlencode(annureport_data)
             response=requests.get(url)
             if response.status_code==200:
-                a=response.json()
-                nianbaos=dict(a.items()+nianbaos.items())
-
+                a={str(i):response.json()}
+                nianbaos.update(a)
         return nianbaos
     except RequestException:
         print('请求详情页（get_detail_html)失败')
         return None
 
-def save_to_mongo(company_information,nianbaos):
-    if db[MONGO_TABLE].insert(company_information):
+def save_to_mongo(all_information):
+    if db[MONGO_TABLE].insert(all_information):
         print('Waiting save data.............')
         time.sleep(0.1)
-        print('保存公司基本信息数据中。。。。。。')
-        print('Successfully Saved to Mongo')
-    if db[MONGO_TABLE].insert(nianbaos):
-        print('Waiting save data.............')
-        time.sleep(0.1)
-        print('保存年报数据中。。。。。。')
+        print('保存信息数据中。。。。。。')
         print('Successfully Saved to Mongo')
         return True
     return False
@@ -142,10 +142,13 @@ def main(p):
         company_informations=search_company_information(keyword,p)
         for company_information in company_informations:
             id=(company_information).get('id')
-            url_datas=get_url_datas(id)
-            nianbaos=get_nianbao(url_datas)
-        # detail_result=get_detail_result(company_information)
-            if company_information is not None: save_to_mongo(company_information,nianbaos)
+            annureport_count=get_annureport_count(id)
+            if annureport_count is not None:
+                nianbaos=get_nianbao(annureport_count)
+                if company_information or nianbaos is not None:
+                    all_information={'公司基本信息':company_information,
+                                     '公司年报':nianbaos}
+                    save_to_mongo(all_information)
 
 if __name__ == "__main__":
     main(10)
